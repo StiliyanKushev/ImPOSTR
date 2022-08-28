@@ -15,6 +15,7 @@ export default class ImPOSTR_Mouse_Linux {
 
     // only used if program specified
     virtualEnvironment = {
+        exists          : false,
         xServerId       : null,
         process         : null,
         program         : null,
@@ -23,7 +24,11 @@ export default class ImPOSTR_Mouse_Linux {
     // in linux, if we want to spoof for a program and not globally
     // we have to run it in a seperate X server
     async configureProgram(program) {
+        this.virtualEnvironment.exists = true
         this.virtualEnvironment.program = program
+
+        // save id of the current foreground window (so we can later bring it back)
+        const oldForegroundWindowID = cp.execSync(`sudo xdotool getactivewindow`)
 
         // 1. make new x server window
         this.virtualEnvironment.xServerId = Math.floor(Math.random() * 10_000)
@@ -35,6 +40,17 @@ export default class ImPOSTR_Mouse_Linux {
             `-class`, `"imPOSTR-${this.virtualEnvironment.xServerId}"`,
             `-geometry`, `${program.width || 300}x${program.height || 300}+0+0`
         ])
+
+        // bring old foreground window to the foreground again (might be a small flash but it's the best that can be done)
+        await new Promise(resolve => {
+            let intrv = setInterval(() => {
+                let currentForegroundWindowID = cp.execSync(`sudo xdotool getactivewindow`)
+                if(currentForegroundWindowID != oldForegroundWindowID) {
+                    resolve(clearInterval(intrv))
+                }
+            }, 1)
+        })
+        cp.execSync(`sudo xdotool windowactivate ${oldForegroundWindowID}`)
 
         // 2. make a new bash script that acts as this program but we run the bash script with some args
         //    that let any app be ran into an x org server
@@ -54,7 +70,6 @@ export default class ImPOSTR_Mouse_Linux {
         cp.exec(patchedProgram)
 
         // run openbox (lightweight and highly compatible with high level X functions like moving the window)
-        // todo: maybe use the window manager the user already has for less dependancies
         const openbox = cp.exec(`${this.display} openbox`)
 
         // wait for openbox to run (just in case)
@@ -91,10 +106,7 @@ export default class ImPOSTR_Mouse_Linux {
             await new Promise(resolve => { setTimeout(resolve, 10) }) 
         }
 
-        // todo: set this.virtualDevice.cursorAddress to the address of the master pointer of the new x session
-
-        // note: this is not really good because apps (like chrome) can block these spoofs
-        // todo: or use xdotool directly to control the pointer and keyboard
+        // now we can use xdotool too control the whole program window without bringing it to the foreground!
     }
 
     // returns display string (if configured for a program)
@@ -225,7 +237,12 @@ export default class ImPOSTR_Mouse_Linux {
     }
 
     async moveMouseOffset(x, y) {
-        // we move it to the very top left, so that relative cordinates become absolute (XD)
+        if(this.virtualEnvironment.exists) {
+            cp.execSync(`${this.display} sudo xdotool mousemove ${x} ${y}`)
+            return
+        }
+
+        // we move it to the very top left, so that relative cordinates become absolute
         this.writeToDevice('EV_REL', 'REL_X', -99999)
         this.writeToDevice('EV_REL', 'REL_Y', -99999, true)
 
@@ -233,13 +250,18 @@ export default class ImPOSTR_Mouse_Linux {
         this.writeToDevice('EV_REL', 'REL_Y', Math.round(y / 2), true)
     }
     
-    // to hide the virtual cursor we literally move it bottom right of the screen (XD)
+    // to hide the virtual cursor we literally move it bottom right of the screen
     async hideCursor() {
         this.writeToDevice('EV_REL', 'REL_X', 9999)
         this.writeToDevice('EV_REL', 'REL_Y', 9999, true)
     }
 
     async mouseLeftClick(x, y) {
+        if(this.virtualEnvironment.exists) {
+            cp.execSync(`${this.display} sudo xdotool mousemove ${x} ${y} click 1`)
+            return
+        }
+
         this.moveMouseOffset(x, y)
 
         // press down
@@ -257,6 +279,11 @@ export default class ImPOSTR_Mouse_Linux {
     }
 
     async mouseRightClick(x, y) {
+        if(this.virtualEnvironment.exists) {
+            cp.execSync(`${this.display} sudo xdotool mousemove ${x} ${y} click 3`)
+            return
+        }
+
         this.moveMouseOffset(x, y)
 
         // press down

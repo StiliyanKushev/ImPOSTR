@@ -22,4 +22,6 @@ const app = ImPOSTR.for({
     ]
 })
 await app.prepare()
-await app.mouse.mouseRightClick(50, 50)
+
+// to get relative mouse positions easy use -> DISPLAY=:{get from process.stdout} && watch -n 0.1 xdotool getmouselocation
+await app.mouse.mouseLeftClick(380, 512)
