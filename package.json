@@ -1,0 +1,34 @@
+{
+  "name": "impostr",
+  "version": "1.0.0",
+  "description": "A javascript module that spoofs mouse and keyboard events (without moving the real cursor). Works on Both Linux and Windows reguardless of the system, or it's version!",
+  "main": "index.js",
+  "scripts": {
+    "start": "sudo node --es-module-specifier-resolution=node --no-warnings index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StiliyanKushev/ImPOSTR.git"
+  },
+  "type": "module",
+  "keywords": [
+    "cross-platform",
+    "spoof",
+    "post",
+    "linux",
+    "windows",
+    "fake",
+    "mouse",
+    "keyboard",
+    "event",
+    "input",
+    "user32",
+    "kernel32"
+  ],
+  "author": "Stiliyan Kushev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/StiliyanKushev/ImPOSTR/issues"
+  },
+  "homepage": "https://github.com/StiliyanKushev/ImPOSTR#readme"
+}

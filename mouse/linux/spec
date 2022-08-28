@@ -1,0 +1,50 @@
+# 1. store nulled dummy dump to memory
+# ### Beginning ###
+# N: {name}
+# I: 0000 0000 0000 0000
+# P: 00 00 00 00 00 00 00 00 00
+# B: 00 0b 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# B: 00 00 00 00 00 00 00 00 00
+# A: 00 0 000 0 0
+# ### Ending ###
+# 2. replace {name} with some name of the new virtual device
+# 3. write the dump to a file, somewhere on disk, probably the temp folder of the os
+# 4. create new virtual device based on the dump -> sudo evemu-device device.properties
+# 4.1. NOTE: step 4 is going to remain running. If closed the virtual device is killed.
+# 5. get the ID of the new virtual device from this command -> xinput
+# 6. create a temporary new cursor -> xinput create-master "{temp name here}"
+# 7. get the ID of the MASTER (not the slave) of the new cursor 
+# 8. now attach the new virtual mouse to the new cursor -> xinput reattach "{id from step 5}" "{id from step 7}"
+# 9. now you have a second cursor you can control.
+# LINKS: 
+# (replace /dev/input/event5 with the address returned from step 4.)
+# https://unix.stackexchange.com/questions/422698/how-to-set-absolute-mouse-cursor-position-in-wayland-without-using-mouse
+# https://github.com/freedesktop/evemu/blob/master/INSTALL
+# NOTE: to make the cursor hidden, one idea is to always move it at the bottom right corner when it's not being used.
+# NOTE: we need to remove the cursor when the app exists. 
+# LINKS:
+# catch when we exit
+# https://stackoverflow.com/questions/14031763/doing-a-cleanup-action-just-before-node-js-exits 
+# we follow the logic from 4.1 and kill the virtual device
+# and we remove the cursor
+# xinput remove-master "{id from step 7}"
