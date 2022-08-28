@@ -13,7 +13,99 @@ export default class ImPOSTR_Mouse_Linux {
         cursorPosition  : null,
     }
 
-    async configure() {
+    // only used if program specified
+    virtualEnvironment = {
+        xServerId       : null,
+        process         : null,
+        program         : null,
+    }
+
+    // in linux, if we want to spoof for a program and not globally
+    // we have to run it in a seperate X server
+    async configureProgram(program) {
+        this.virtualEnvironment.program = program
+
+        // 1. make new x server window
+        this.virtualEnvironment.xServerId = Math.floor(Math.random() * 10_000)
+
+        console.log(`Xnest :${this.virtualEnvironment.xServerId}`)
+        this.virtualEnvironment.process = cp.spawn('Xnest', [
+            `:${this.virtualEnvironment.xServerId}`,
+            `-name`, `${program.title || program.name} [imPOSTR]`,
+            `-class`, `"imPOSTR-${this.virtualEnvironment.xServerId}"`,
+            `-geometry`, `${program.width || 300}x${program.height || 300}+0+0`
+        ])
+
+        // 2. make a new bash script that acts as this program but we run the bash script with some args
+        //    that let any app be ran into an x org server
+        const patched = path.join(os.tmpdir(), `./${program.name}.${this.virtualEnvironment.xServerId}`)
+        fs.writeFileSync(patched, `#!/bin/sh\n${program.name} ${(program.args || []).join(' ')}\n`)
+
+        // 3. set the display variable and execute the script from step 2.
+        let patchedProgram = `${this.display} sudo sh ${patched} ` + [
+            `--enable-greasemonkey`, 
+            `--enable-user-scripts`, 
+            `--enable-extensions`, 
+            `--user-data-dir=~/.config/${this.virtualEnvironment.xServerId}`, 
+            `"$@"`,
+        ].join(' ')
+
+        console.log(`patched program: ${patchedProgram}`)
+        cp.exec(patchedProgram)
+
+        // run openbox (lightweight and highly compatible with high level X functions like moving the window)
+        // todo: maybe use the window manager the user already has for less dependancies
+        const openbox = cp.exec(`${this.display} openbox`)
+
+        // wait for openbox to run (just in case)
+        const openboxOut = await new Promise(resolve => {
+            openbox.stdout.on('data', data => {
+                resolve(data.toString())
+            })
+    
+            openbox.stderr.on('data', data => {
+                resolve(new Error(data.toString()))
+            })
+        })
+
+        console.log(openboxOut)
+
+        // just in-case
+        if(openboxOut instanceof Error) {
+            console.log(openboxOut)
+            process.exit()
+        }
+
+        // just in-case
+        await new Promise(resolve => { setTimeout(resolve, 500) }) 
+
+        console.log('openbox loaded')
+
+        // make the program window (currently active window) get to (x,y) (0,0) and resize the Xnest window to it
+        const programRun = `${this.display} xdotool getactivewindow windowmove 0 0 ${program.width ? `windowsize ${program.width}` : ''} ${program.height || ''}`
+        console.log(programRun)
+
+        // just in-case
+        for(let i = 0; i < 10; i++) {
+            cp.execSync(programRun)
+            await new Promise(resolve => { setTimeout(resolve, 10) }) 
+        }
+
+        // todo: set this.virtualDevice.cursorAddress to the address of the master pointer of the new x session
+
+        // note: this is not really good because apps (like chrome) can block these spoofs
+        // todo: or use xdotool directly to control the pointer and keyboard
+    }
+
+    // returns display string (if configured for a program)
+    get display() {
+        return this.virtualEnvironment.xServerId ? `DISPLAY=:${this.virtualEnvironment.xServerId} && ` : ''
+    }
+
+    async configure(program) {
+        // configuration per program is a little different
+        if(program) return await this.configureProgram(program)
+
         this.virtualDevice.name = (Math.random() + 1).toString(36).substring(7)
 
         // this describes a mouse, with the permissions to move and click
@@ -52,11 +144,12 @@ export default class ImPOSTR_Mouse_Linux {
         console.log(`evemu-device ${dumpFilePath}`)
         this.virtualDevice.process = cp.spawn('evemu-device', [dumpFilePath])
     
-        // get the id of the virtual device based on it's name
-        function getIDFromName(name, type) {
-            let out = cp.execSync('xinput').toString()
+        // gets the id of the virtual device based on it's name
+        const getIDFromName = (name, type) => {
+            let out = cp.execSync(`xinput`).toString()
             let rx = new RegExp(`${name}.+id=(\\d*)\\s+\\[${type}`, 'm')
-            return Number(out.match(rx)[1])
+            try { return Number(out.match(rx)[1]) }
+            catch (e) { console.log(out, rx, e); process.exit() }
         }
 
         // wait for the virtual device process to run
@@ -66,16 +159,25 @@ export default class ImPOSTR_Mouse_Linux {
             })
     
             this.virtualDevice.process.stderr.on('data', data => {
-                resolve(data.toString())
+                resolve(new Error(data.toString()))
             })
         })).split(':')[1].trim()
 
+        console.log('virtual device at:')
+        console.log(this.virtualDevice.cursorAddress)
+
+        // it could be an error, we exist in that case
+        if(this.virtualDevice.cursorAddress instanceof Error) {
+            process.exit()
+        }
+
         // wait for the virtual device to be recognised by x
         await new Promise(resolve => {
-            setInterval(() => {
-                let out = cp.execSync('xinput').toString()
-                if(out.includes(this.virtualDevice.name)) resolve()
-            }, 300)
+            let itvl = setInterval(() => {
+                console.log('waiting for virtual device...')
+                let out = cp.execSync(`xinput`).toString()
+                if(out.includes(this.virtualDevice.name)) resolve(clearInterval(itvl))
+            }, 500)
         })
 
         // get the slave id
@@ -110,7 +212,7 @@ export default class ImPOSTR_Mouse_Linux {
         process.on('SIGINT', exitHandler.bind(null, {exit:true}))
         process.on('SIGUSR1', exitHandler.bind(null, {exit:true}))
         process.on('SIGUSR2', exitHandler.bind(null, {exit:true}))
-        process.on('uncaughtException', exitHandler.bind(null, {exit:true}))
+        process.on('uncaughtException', exitHandler.bind(null, {exit:false}))
 
         // print new mouse address
         console.log(this.virtualDevice.cursorAddress)

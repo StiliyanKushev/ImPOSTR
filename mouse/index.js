@@ -18,8 +18,8 @@ export default class ImPOSTR_Mouse {
         }
     }
 
-    async configure() {
-        return await this.internal.configure()
+    async configure(program) {
+        return await this.internal.configure(program)
     }
 
     async moveMouseOffset(xOffset, yOffset) {

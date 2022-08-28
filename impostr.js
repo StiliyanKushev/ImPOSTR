@@ -24,18 +24,14 @@ export default class ImPOSTR {
         })
     }
 
-    static getWindowByTitle(title) {
-        // todo: return "new ImPOSTR_Window" object based on title
-    }
-
-    static getWindowByProcessName(name) {
-        // todo: return "new ImPOSTR_Window" object based on name
-    }
-
-    static forWindow(impostrWindow) {
+    static for(program) {
         return {
-            mouse: new ImPOSTR_Mouse(currentOS, impostrWindow),
-            keyboard: new ImPOSTR_Keyboard(currentOS, impostrWindow),
+            mouse: new ImPOSTR_Mouse(currentOS),
+            keyboard: new ImPOSTR_Keyboard(currentOS),
+            prepare: async function () {
+                await this.mouse.configure(program)
+                await this.keyboard.configure(program)
+            }
         }
     }
 }
